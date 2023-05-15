@@ -13,10 +13,6 @@ type Node struct {
 	Parent *Node
 }
 
-type Coordinate struct {
-	X, Y int
-}
-
 // Updated Node struct to support proper comparison
 func (n *Node) Equal(other *Node) bool {
 	return n.X == other.X && n.Y == other.Y
@@ -53,6 +49,10 @@ func AStarSearch(start, dest *Node, grid [][]int) []*Node {
 
 		// Generate neighboring nodes of the current node
 		neighbors := generateNeighbors(current, grid)
+
+		// if len(neighbors) != 0 {
+		// 	panic(*neighbors[0])
+		// }
 
 		for _, neighbor := range neighbors {
 			// Skip obstacles and already closed nodes

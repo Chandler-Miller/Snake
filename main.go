@@ -86,17 +86,7 @@ func main() {
 		Grid:      grid,
 	}
 
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				screen.Fini() // Clean up the tcell screen before displaying the error
-				fmt.Fprintf(os.Stderr, "Panic occurred: %v\n", r)
-				os.Exit(1)
-			}
-		}()
-
-		go game.Run()
-	}()
+	go game.Run()
 
 	for {
 		switch event := game.Screen.PollEvent().(type) {
@@ -115,17 +105,7 @@ func main() {
 			} else if event.Key() == tcell.KeyRight && game.snakeBody.Xspeed == 0 {
 				game.snakeBody.ChangeDir(0, 1)
 			} else if event.Rune() == 'y' && game.GameOver {
-				go func() {
-					defer func() {
-						if r := recover(); r != nil {
-							game.Screen.Fini()
-							fmt.Fprintf(os.Stderr, "Panic occurred: %v\n", r)
-							os.Exit(1)
-						}
-					}()
-
-					game.Run()
-				}()
+				go game.Run()
 			} else if event.Rune() == 'n' && game.GameOver {
 				game.Screen.Fini()
 				os.Exit(0)
@@ -209,23 +189,27 @@ type Game struct {
 	Grid      [][]int
 }
 
-func drawParts(s tcell.Screen, snakeParts []SnakePart, foodPos SnakePart, snakeStyle tcell.Style, foodStyle tcell.Style, grid [][]int) (*path.Node, *path.Node, [][]int) {
-
+func drawParts(s tcell.Screen, snakeParts []SnakePart, foodPos SnakePart, snakeStyle tcell.Style, foodStyle tcell.Style, grid [][]int, checkPath bool) (*path.Node, *path.Node, [][]int) {
 	s.SetContent(foodPos.X, foodPos.Y, '\u25CF', nil, foodStyle)
-
-	grid[foodPos.X][foodPos.Y] = 3
 
 	for _, part := range snakeParts {
 		s.SetContent(part.X, part.Y, ' ', nil, snakeStyle)
-		grid[part.X][part.Y] = 1
 	}
 
-	grid[snakeParts[0].X][snakeParts[0].Y] = 2
+	if checkPath {
+		grid[foodPos.X][foodPos.Y] = 3
+		grid[snakeParts[0].X][snakeParts[0].Y] = 2
+		start := &path.Node{X: snakeParts[0].X, Y: snakeParts[0].Y}
+		dest := &path.Node{X: foodPos.X, Y: foodPos.Y}
 
-	start := &path.Node{X: snakeParts[0].X, Y: snakeParts[0].Y}
-	dest := &path.Node{X: foodPos.X, Y: foodPos.Y}
+		for _, part := range snakeParts {
+			grid[part.X][part.Y] = 1
+		}
 
-	return start, dest, grid
+		return start, dest, grid
+	} else {
+		return nil, nil, nil
+	}
 }
 
 func drawText(s tcell.Screen, x1, y1, x2, y2 int, text string) {
@@ -285,14 +269,16 @@ func (g *Game) Run() {
 	g.Score = 0
 	snakeStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorWhite)
 
+	i := 0
+
 	for {
 		longerSnake := false
-		foodCheck := false
+		checkPath := false
 		g.Screen.Clear()
 		if checkCollision(g.snakeBody.Parts[len(g.snakeBody.Parts)-1:], g.FoodPos) {
 			g.UpdateFoodPos(width, height)
 			longerSnake = true
-			foodCheck = true
+			checkPath = true
 			g.Score++
 		}
 
@@ -301,13 +287,21 @@ func (g *Game) Run() {
 		}
 
 		g.snakeBody.Update(width, height, longerSnake)
-		start, dest, grid := drawParts(g.Screen, g.snakeBody.Parts, g.FoodPos, snakeStyle, defStyle, g.Grid)
+		start, dest, grid := drawParts(g.Screen, g.snakeBody.Parts, g.FoodPos, snakeStyle, defStyle, g.Grid, checkPath)
 		drawText(g.Screen, 1, 1, 8+len(strconv.Itoa(g.Score)), 1, "Score: "+strconv.Itoa(g.Score))
-
-		if foodCheck {
+		if checkPath {
+			res := Result{
+				Start: *start,
+				Dest:  *dest,
+				Grid:  grid,
+			}
 			newPath := path.AStarSearch(start, dest, grid)
 			if newPath != nil {
-				drawText(g.Screen, width/2-20, height/2, width/2+20, height/2, strconv.Itoa(newPath[0].X)+" "+strconv.Itoa(newPath[0].Y))
+				panic(newPath)
+			}
+			i++
+			if i >= 2 {
+				panic(res)
 			}
 		}
 
@@ -318,4 +312,10 @@ func (g *Game) Run() {
 	g.GameOver = true
 	drawText(g.Screen, width/2-20, height/2, width/2+20, height/2, "Game Over, Score: "+strconv.Itoa(g.Score)+", Play Again? y/n")
 	g.Screen.Show()
+}
+
+type Result struct {
+	Start path.Node
+	Dest  path.Node
+	Grid  [][]int
 }

@@ -62,11 +62,6 @@ func AStarSearch(start, dest *Node, grid [][]int) []*Node {
 	// 	panic("Invalid grid")
 	// }
 
-	for _, i := range grid {
-		res := arrayToString(i, ", ")
-		log.Printf("{ " + res + " }," + "\n")
-	}
-
 	// initialize an open list that only contains the start node.
 	// the open list holds nodes that still need to be checked
 	openList := []*Node{start}

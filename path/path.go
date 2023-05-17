@@ -2,8 +2,9 @@ package path
 
 import (
 	"fmt"
-
+	"log"
 	"math"
+	"strings"
 )
 
 // Node represents a node in the grid
@@ -18,8 +19,48 @@ func (n *Node) Equal(other *Node) bool {
 	return n.X == other.X && n.Y == other.Y
 }
 
+func ValidateGrid(start, dest *Node, grid [][]int) bool {
+	// Check if start and destination nodes are within grid boundaries
+	if start.X < 0 || start.X >= len(grid[0]) || start.Y < 0 || start.Y >= len(grid) ||
+		dest.X < 0 || dest.X >= len(grid[0]) || dest.Y < 0 || dest.Y >= len(grid) {
+		log.Println("Node and Grid info: ")
+		log.Println(start.X, start.Y)
+		log.Println(dest.X, dest.Y)
+		log.Println("Nodes are not within grid boundaries")
+		log.Println(len(grid[0]))
+		log.Println(len(grid))
+		log.Println()
+		return false
+	}
+
+	// Check if start and destination nodes are obstacle cells
+	if grid[start.Y][start.X] == 1 {
+		log.Println("Start is an obstacle cell")
+		return false
+	}
+
+	if grid[dest.Y][dest.X] == 1 {
+		log.Println("Dest is an obstacle cell")
+		return false
+	}
+
+	return true
+}
+
+func arrayToString(a []int, delim string) string {
+	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
+}
+
 // A* search algorithm implementation
 func AStarSearch(start, dest *Node, grid [][]int) []*Node {
+	if !ValidateGrid(start, dest, grid) {
+		for _, i := range grid {
+			res := arrayToString(i, ", ")
+			log.Printf("{ " + res + " }," + "\n")
+		}
+		log.Println(grid)
+		panic("Invalid grid")
+	}
 	// initialize an open list that only contains the start node.
 	// the open list holds nodes that still need to be checked
 	openList := []*Node{start}
@@ -81,7 +122,6 @@ func AStarSearch(start, dest *Node, grid [][]int) []*Node {
 }
 
 // Reconstruct the path from the destination node to the start node
-
 func reconstructPath(node *Node) []*Node {
 	path := []*Node{node}
 

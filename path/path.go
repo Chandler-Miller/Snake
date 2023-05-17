@@ -53,14 +53,20 @@ func arrayToString(a []int, delim string) string {
 
 // A* search algorithm implementation
 func AStarSearch(start, dest *Node, grid [][]int) []*Node {
-	if !ValidateGrid(start, dest, grid) {
-		for _, i := range grid {
-			res := arrayToString(i, ", ")
-			log.Printf("{ " + res + " }," + "\n")
-		}
-		log.Println(grid)
-		panic("Invalid grid")
+	// if !ValidateGrid(start, dest, grid) {
+	// 	for _, i := range grid {
+	// 		res := arrayToString(i, ", ")
+	// 		log.Printf("{ " + res + " }," + "\n")
+	// 	}
+	// 	log.Println(grid)
+	// 	panic("Invalid grid")
+	// }
+
+	for _, i := range grid {
+		res := arrayToString(i, ", ")
+		log.Printf("{ " + res + " }," + "\n")
 	}
+
 	// initialize an open list that only contains the start node.
 	// the open list holds nodes that still need to be checked
 	openList := []*Node{start}
@@ -90,10 +96,6 @@ func AStarSearch(start, dest *Node, grid [][]int) []*Node {
 
 		// Generate neighboring nodes of the current node
 		neighbors := generateNeighbors(current, grid)
-
-		// if len(neighbors) != 0 {
-		// 	panic(*neighbors[0])
-		// }
 
 		for _, neighbor := range neighbors {
 			// Skip obstacles and already closed nodes

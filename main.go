@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -28,22 +27,8 @@ func main() {
 
 	screen.SetStyle(defStyle)
 
-	//316 28
-
 	width, height := screen.Size()
-	grid := make([][]int, height)
-	for i := 0; i < height; i++ {
-		grid[i] = make([]int, width)
-	}
-
-	// xLen := 100
-	// yLen := 100
-
-	// // Create the 2D matrix
-	// grid := make([][]int, xLen)
-	// for i := range grid {
-	// 	grid[i] = make([]int, yLen)
-	// }
+	grid := makeGrid(width, height)
 
 	snakeParts := []SnakePart{
 		{
@@ -98,6 +83,30 @@ func main() {
 			}
 		}
 	}
+}
+
+func makeGrid(width, height int) [][]int {
+	grid := make([][]int, width)
+	for i := range grid {
+		grid[i] = make([]int, height)
+	}
+
+	return grid
+}
+
+func transpose(slice [][]int) [][]int {
+	xl := len(slice[0])
+	yl := len(slice)
+	result := make([][]int, xl)
+	for i := range result {
+		result[i] = make([]int, yl)
+	}
+	for i := 0; i < xl; i++ {
+		for j := 0; j < yl; j++ {
+			result[i][j] = slice[j][i]
+		}
+	}
+	return result
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -185,20 +194,19 @@ func drawParts(s tcell.Screen, snakeParts []SnakePart, foodPos SnakePart, snakeS
 	}
 
 	width, height := s.Size()
-	grid := make([][]int, width)
-	for i := 0; i < width; i++ {
-		grid[i] = make([]int, height)
-	}
+	grid := makeGrid(width, height)
 
 	for _, part := range snakeParts {
 		grid[part.X][part.Y] = 1
 	}
 	grid[foodPos.X][foodPos.Y] = 3
-	grid[snakeParts[0].X][snakeParts[0].Y] = 2
-	start := &path.Node{X: snakeParts[0].X, Y: snakeParts[0].Y}
+	grid[snakeParts[len(snakeParts)-1].X][snakeParts[len(snakeParts)-1].Y] = 2
+	start := &path.Node{X: snakeParts[len(snakeParts)-1].X, Y: snakeParts[len(snakeParts)-1].Y}
 	dest := &path.Node{X: foodPos.X, Y: foodPos.Y}
 
-	return start, dest, grid
+	resGrid := transpose(grid)
+
+	return start, dest, resGrid
 }
 
 func drawText(s tcell.Screen, x1, y1, x2, y2 int, text string) {
@@ -265,6 +273,7 @@ func (g *Game) Run() {
 	g.UpdateFoodPos(width, height)
 	g.GameOver = false
 	g.Score = 0
+	g.Path = nil
 	snakeStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorWhite)
 	f, err := os.OpenFile("output.log", os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
@@ -288,51 +297,15 @@ func (g *Game) Run() {
 		}
 
 		g.snakeBody.Update(width, height, longerSnake)
-		// log.Println("Width and height are: ")
-		// log.Println(width)
-		// log.Println(height)
-		// log.Println()
+
 		start, dest, grid := drawParts(g.Screen, g.snakeBody.Parts, g.FoodPos, snakeStyle, defStyle)
+
 		drawText(g.Screen, 1, 1, 8+len(strconv.Itoa(g.Score)), 1, "Score: "+strconv.Itoa(g.Score))
 
-		if g.Path == nil {
-			newPath := path.AStarSearch(start, dest, grid)
-			for newPath == nil {
-				newPath = path.AStarSearch(start, dest, grid)
-			}
+		newPath := path.AStarSearch(start, dest, grid)
 
-			g.Path = newPath
-			go g.pathSnake(newPath, &g.snakeBody)
-		}
-
-		// Only run AStarSearch if the food position has changed
-		// if g.foodPosChanged {
-		// 	newPath := path.AStarSearch(start, dest, grid)
-		// 	if newPath != nil {
-		// 		g.pathSnake(newPath, &g.snakeBody)
-		// 	}
-		// }
-
-		// newPath := path.AStarSearch(start, dest, grid)
-		// if newPath != nil {
-		// 	pathSnake(newPath, &g.snakeBody)
-		// fmt.Scanln()
-		// for i := 0; i < len(newPath)-1; i++ {
-		// 	x, y := calcDifference(newPath[i].X, newPath[i+1].X, newPath[i].Y, newPath[i+1].Y)
-		// 	log.Printf("x: %d\ty: %d\n", x, y)
-		// }
-
-		// for _, i := range grid {
-		// 	res := arrayToString(i, " ")
-		// 	log.Printf(res + "\n")
-		// }
-
-		// g.Screen.Show()
-		// fmt.Scanln()
-		// panic("")
-
-		//go pathSnake(newPath, &g.snakeBody)
-		// }
+		g.Path = newPath
+		g.pathSnake(newPath, &g.snakeBody)
 
 		time.Sleep(40 * time.Millisecond)
 		g.Screen.Show()
@@ -346,13 +319,34 @@ func (g *Game) Run() {
 func (g *Game) pathSnake(path []*path.Node, sb *SnakeBody) {
 	for i := 0; i < len(path)-1; i++ {
 		x, y := calcDifference(path[i].X, path[i+1].X, path[i].Y, path[i+1].Y)
-		if x != 1 && x != 0 && x != -1 || y != 1 && y != 0 && y != -1 {
-			log.Printf("Invalid coordinate given x: %d\ty: %d\n", x, y)
+		if (x != -sb.Xspeed || y != -sb.Yspeed) && (x != sb.Xspeed || y != sb.Yspeed) {
+			sb.ChangeDir(y, x)
 		}
-		sb.ChangeDir(y, x)
 	}
 	g.Path = nil
 }
+
+// func (g *Game) pathSnake(path []*path.Node, sb *SnakeBody) {
+// 	if len(path) < 2 {
+// 		return
+// 	}
+
+// 	// Get the current direction of the snake
+// 	currentX, currentY := sb.Xspeed, sb.Yspeed
+
+// 	for i := 0; i < len(path)-1; i++ {
+// 		nextX, nextY := calcDifference(path[i].X, path[i+1].X, path[i].Y, path[i+1].Y)
+
+// 		// Check if the next direction is valid (not opposite or equal to the current direction)
+// 		if (nextX != -currentX || nextY != -currentY) && (nextX != currentX || nextY != currentY) {
+// 			sb.ChangeDir(nextY, nextX)
+// 			break
+// 		}
+// 	}
+
+// 	// Move one step forward in the path
+// 	sb.Update(len(g.Grid), len(g.Grid[0]), false)
+// }
 
 func calcDifference(x1, x2, y1, y2 int) (int, int) {
 	return x2 - x1, y2 - y1

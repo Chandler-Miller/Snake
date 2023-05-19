@@ -53,14 +53,14 @@ func arrayToString(a []int, delim string) string {
 
 // A* search algorithm implementation
 func AStarSearch(start, dest *Node, grid [][]int) []*Node {
-	// if !ValidateGrid(start, dest, grid) {
-	// 	for _, i := range grid {
-	// 		res := arrayToString(i, ", ")
-	// 		log.Printf("{ " + res + " }," + "\n")
-	// 	}
-	// 	log.Println(grid)
-	// 	panic("Invalid grid")
-	// }
+	if !ValidateGrid(start, dest, grid) {
+		for _, i := range grid {
+			res := arrayToString(i, ", ")
+			log.Printf("{ " + res + " }," + "\n")
+		}
+		log.Println(grid)
+		panic("Invalid grid")
+	}
 
 	// initialize an open list that only contains the start node.
 	// the open list holds nodes that still need to be checked
@@ -159,7 +159,6 @@ func distance(a, b *Node) float64 {
 }
 
 // Check if a node is present in a list
-
 func contains(list []*Node, node *Node) bool {
 	for _, n := range list {
 		if n.Equal(node) {
